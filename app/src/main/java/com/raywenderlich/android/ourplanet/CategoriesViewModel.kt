@@ -43,10 +43,14 @@ import io.reactivex.schedulers.Schedulers
 class CategoriesViewModel : ViewModel() {
 
   val categoriesLiveData = MutableLiveData<List<EOCategory>>()
-  
+
+  val downloadCompleteLiveData = MutableLiveData<Boolean>()
+
   private val disposables = CompositeDisposable()
 
   fun startDownload() {
+    downloadCompleteLiveData.postValue(false)
+
     val eoCategories = EONET.fetchCategories()
         .map { response ->
           val categories = response.categories
@@ -58,6 +62,12 @@ class CategoriesViewModel : ViewModel() {
         EONET.fetchEvents(category)
       })
     }, 2)
+//        .observeOn(AndroidSchedulers.mainThread())
+//        .doOnSubscribe {
+//      downloadCompleteLiveData.value = false
+//    }.doOnDispose {
+//      downloadCompleteLiveData.value = true
+//    }
 
     val updatedCategories = eoCategories.flatMap { categories ->
       downloadedEvents.scan(categories) { updated, events ->
@@ -72,6 +82,8 @@ class CategoriesViewModel : ViewModel() {
           }
         }
       }
+    }.doOnComplete {
+      downloadCompleteLiveData.postValue(true)
     }
 
     val subscription = eoCategories.concatWith(updatedCategories)
